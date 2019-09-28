@@ -1,0 +1,399 @@
+class TerrainMap:
+    def __init__(self):
+        self.map = []
+
+        self.map_size_x = None
+        self.map_size_y = None
+
+        self.landing_site_x = None
+        self.landing_site_y = None
+        self.landing_site = []
+
+        self.Algorithm = ""
+        self.max_difference = 0
+
+        self.target_sites_size = 0
+        # Matrix to store all target sites
+        self.target_sites = []
+
+    def read_data(self):
+
+        input_file = open("input.txt")
+        input_lines = input_file.readlines()
+
+        # Assign data into
+        self.Algorithm = str(input_lines[0]).strip()
+
+        tmp_list = list(int(a) for a in (' '.join(input_lines[1].strip().split()).split()))
+        self.map_size_x = tmp_list[1]
+        self.map_size_y = tmp_list[0]
+
+        tmp_list = list(int(a) for a in (' '.join(input_lines[2].strip().split()).split()))
+        self.landing_site_x = tmp_list[0]
+        self.landing_site_y = tmp_list[1]
+        self.landing_site = [self.landing_site_x, self.landing_site_y]
+
+        tmp_list = list(int(a) for a in (' '.join(input_lines[3].strip().split()).split()))
+        self.max_difference = tmp_list[0]
+
+        tmp_list = list(int(a) for a in (' '.join(input_lines[4].strip().split()).split()))
+        self.target_sites_size = tmp_list[0]
+
+        # Assign position target sites
+        for line in input_lines[5: 5 + self.target_sites_size]:
+            curr_list = []
+            curr_value: str = ''
+            for index in line:
+                curr_list.append(index)
+                if index == '\n':
+                    curr_list.pop(-1)
+                    curr_value = curr_list[-1]
+                    self.target_sites.append(list(int(a) for a in (' '.join(curr_value.split()).split())))
+                    curr_value = ''
+                    curr_list = []
+                else:
+                    curr_list.pop(-1)
+                    curr_value += str(index)
+                    curr_list.append(curr_value)
+
+        # Assign map list
+        map_start = 5 + self.target_sites_size
+        map_end = map_start + self.map_size_x
+        for line in input_lines[map_start: map_end + 1]:
+            curr_value = ''
+            for index in line:
+                curr_value += index
+            self.map.append(list(int(a) for a in (' '.join(curr_value.split()).split())))
+
+    # For test
+    """
+    def print_data(self):
+        print(self.Algorithm)
+        print("map_size_x: ", self.map_size_x)
+        print("map_size_y: ", self.map_size_y)
+        print("landing_site: ", self.landing_site)
+        print("max difference: ", self.max_difference)
+        print("target_sites_size: ", self.target_sites_size)
+        print("target_sites: ", self.target_sites)
+        print("map: ", self.map)
+    """
+
+
+open('output.txt', 'w').close()
+
+times = 0
+def write_data(result):
+    f = open("output.txt", 'a')
+    if type(result) == list:
+        # print("write函数")
+        str_line = ' '.join((str(i)[1:-1].replace(' ', '') for i in result))
+        f.write(str(str_line) + ' ')
+        if times > 1:
+            f.write('\n')
+    if isinstance(result, str):
+        # print("write函数")
+        f.write(result)
+        if times > 1:
+            f.write('\n')
+    f.close()
+
+
+class TreeNode:
+    def __init__(self, point):
+        self.point = point
+
+        self.children_str = []
+        self.children_dig = []
+        self.northeast_pst = [point[0] + 1, point[1] - 1]
+        self.northwest_pst = [point[0] - 1, point[1] - 1]
+        self.southeast_pst = [point[0] + 1, point[1] + 1]
+        self.southwest_pst = [point[0] - 1, point[1] + 1]
+        self.north_pst = [point[0], point[1] - 1]
+        self.south_pst = [point[0], point[1] + 1]
+        self.east_pst = [point[0] + 1, point[1]]
+        self.west_pst = [point[0] - 1, point[1]]
+
+        self.children = [self.west_pst, self.east_pst, self.south_pst, self.north_pst, self.southwest_pst,
+                         self.southeast_pst, self.northwest_pst, self.northeast_pst]
+        self.children_str = [self.west_pst, self.east_pst, self.south_pst, self.north_pst]
+        self.children_dig = [self.southwest_pst, self.southeast_pst, self.northwest_pst, self.northeast_pst]
+
+
+# Using BFS
+# landing_site: position of landing site - list[] stored x and y
+# target_site: position of target site - list[] stored x and y
+def bfs(input_map, landing_site, target_site):
+    # Initiate the map
+    instance_map = input_map
+    instance_map.read_data()
+    map_list = instance_map.map
+    max_difference = instance_map.max_difference
+
+    map_size_x = instance_map.map_size_x
+    map_size_y = instance_map.map_size_y
+
+    # Queue stored points can be walked next step - list[list[int]] stored series of position can be reached next walk
+    # A matrix stored the distance from landing_site to every points
+    nodes_queue = [landing_site]
+    cost_list = [[-1 for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list_parent = [[[0] for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list[landing_site[1]][landing_site[0]] = 0
+    visited = []
+    min_cost = -1
+
+    while nodes_queue:
+        curr_node = TreeNode(nodes_queue.pop(0))
+
+        if curr_node.point == target_site:
+            min_cost = cost_list[target_site[1]][target_site[0]]
+            break
+
+        # Add child into cost_list and re_list
+        for child in curr_node.children:
+            x_index = child[1]
+            y_index = child[0]
+            if x_index < 0 or x_index >= map_size_x:
+                continue
+            if y_index < 0 or y_index >= map_size_y:
+                continue
+            if abs(map_list[x_index][y_index] - map_list[curr_node.point[1]][curr_node.point[0]]) > max_difference:
+                continue
+            cost_child = cost_list[x_index][y_index]
+            cost_curr = cost_list[curr_node.point[1]][curr_node.point[0]]
+            if cost_child == -1 or cost_child > cost_curr + 1:
+                cost_list[x_index][y_index] = cost_curr + 1
+                cost_list_parent[x_index][y_index] = curr_node.point
+                nodes_queue.append(child)
+
+    # Find path from target to landing
+    if min_cost > -1:
+        visited.insert(0, target_site)
+        curr_parent = cost_list_parent[target_site[1]][target_site[0]]
+        while curr_parent != landing_site and curr_parent != [0]:
+            visited.insert(0, curr_parent)
+            curr_parent = cost_list_parent[curr_parent[1]][curr_parent[0]]
+        if landing_site not in visited:
+            visited.insert(0, landing_site)
+        write_data(visited)
+        return
+    else:
+        # print('Failure')
+        write_data('FAIL')
+        return
+
+
+# Using UCS
+# landing_site: position of landing site - list[] stored x and y
+# target_site: position of target site - list[] stored x and y
+def uniform_cost_search(input_map, landing_site, target_site):
+    # Initiate the map
+    global min_pop
+    instance_map = input_map
+    instance_map.read_data()
+    map_list = instance_map.map
+    max_difference = instance_map.max_difference
+
+    map_size_x = instance_map.map_size_x
+    map_size_y = instance_map.map_size_y
+
+    # Queue stored points can be walked next step - list[list[int]] stored series of position can be reached next walk
+    # A matrix stored the distance from landing_site to every points
+    nodes_queue = [landing_site]
+    cost_list = [[-1 for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list_parent = [[[0] for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list[landing_site[1]][landing_site[0]] = 0
+    visited = []
+    min_cost = -1
+
+    while nodes_queue:
+
+        curr_min_cost = float("inf")
+        min_pop = -1
+        # Sort according to the cost
+        for index in range(len(nodes_queue)):
+            x = nodes_queue[index][1]
+            y = nodes_queue[index][0]
+            if curr_min_cost > cost_list[x][y] >= 0:
+                curr_min_cost = cost_list[x][y]
+                min_pop = index
+
+        curr_node = TreeNode(nodes_queue.pop(min_pop))
+
+        if curr_node.point == target_site:
+            min_cost = cost_list[target_site[1]][target_site[0]]
+            break
+
+        # Add child into cost_list and re_list
+        for child_str in curr_node.children_str:
+            x_index = child_str[1]
+            y_index = child_str[0]
+            if x_index < 0 or x_index >= map_size_x:
+                continue
+            if y_index < 0 or y_index >= map_size_y:
+                continue
+            if abs(map_list[x_index][y_index] - map_list[curr_node.point[1]][curr_node.point[0]]) > max_difference:
+                continue
+            cost_child = cost_list[x_index][y_index]
+            cost_curr = cost_list[curr_node.point[1]][curr_node.point[0]]
+            if cost_child == -1 or cost_child > cost_curr + 10:
+                cost_list[x_index][y_index] = cost_curr + 10
+                cost_list_parent[x_index][y_index] = curr_node.point
+                nodes_queue.append(child_str)
+
+        for child_dig in curr_node.children_dig:
+            x_index = child_dig[1]
+            y_index = child_dig[0]
+            if x_index < 0 or x_index >= map_size_x:
+                continue
+            if y_index < 0 or y_index >= map_size_y:
+                continue
+            if abs(map_list[x_index][y_index] - map_list[curr_node.point[1]][curr_node.point[0]]) > max_difference:
+                continue
+            cost_child = cost_list[x_index][y_index]
+            cost_curr = cost_list[curr_node.point[1]][curr_node.point[0]]
+            if cost_child == -1 or cost_child > cost_curr + 14:
+                cost_list[x_index][y_index] = cost_curr + 14
+                cost_list_parent[x_index][y_index] = curr_node.point
+                nodes_queue.append(child_dig)
+
+    if min_cost > -1:
+        visited.insert(0, target_site)
+        # print(target_site)
+        # print(cost_list_parent)
+        curr_parent = cost_list_parent[target_site[1]][target_site[0]]
+        while curr_parent != landing_site and curr_parent != [0]:
+            visited.insert(0, curr_parent)
+            curr_parent = cost_list_parent[curr_parent[1]][curr_parent[0]]
+        if landing_site not in visited:
+            visited.insert(0, landing_site)
+        write_data(visited)
+    else:
+        # print('Failure')
+        write_data('FAIL')
+        return
+
+
+# Using A*
+# landing_site: position of landing site - list[] stored x and y
+# target_site: position of target site - list[] stored x and y
+def a_star_search(input_map, landing_site, target_site):
+    # Initiate the map
+    global min_pop
+    instance_map = input_map
+    instance_map.read_data()
+    map_list = instance_map.map
+    max_difference = instance_map.max_difference
+    x_target = target_site[1]
+    y_target = target_site[0]
+
+    map_size_x = instance_map.map_size_x
+    map_size_y = instance_map.map_size_y
+
+    # Queue stored points can be walked next step - list[list[int]] stored series of position can be reached next walk
+    # A matrix stored the distance from landing_site to every points
+    nodes_queue = [landing_site]
+    cost_list = [[-1 for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list_with_h = [[-1 for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list_parent = [[[0] for i in range(map_size_y)] for j in range(map_size_x)]
+    cost_list[landing_site[1]][landing_site[0]] = 0
+    cost_list_with_h[landing_site[1]][landing_site[0]] = 0
+    visited = []
+    min_cost = -1
+
+    while nodes_queue:
+        # print(cost_list)
+
+        curr_min_cost = float("inf")
+        min_pop = -1
+        # Sort according to the cost
+        for index in range(len(nodes_queue)):
+            x = nodes_queue[index][1]
+            y = nodes_queue[index][0]
+            if curr_min_cost > cost_list_with_h[x][y] >= 0:
+                curr_min_cost = cost_list_with_h[x][y]
+                min_pop = index
+
+        # Curr_node : correspond min cost of current queue
+        curr_node = TreeNode(nodes_queue.pop(min_pop))
+        if curr_node.point == target_site:
+            min_cost = cost_list_with_h[target_site[1]][target_site[0]]
+            break
+
+        # Add child into cost_list and re_list
+        for child_str in curr_node.children_str:
+            x_index = child_str[1]
+            y_index = child_str[0]
+            if x_index < 0 or x_index >= map_size_x:
+                continue
+            if y_index < 0 or y_index >= map_size_y:
+                continue
+            difference_to_parent = abs(map_list[x_index][y_index] - map_list[curr_node.point[1]][curr_node.point[0]])
+            difference_to_goal = abs(map_list[x_index][y_index] - map_list[x_target][y_target])
+            x_difference_to_goal = abs(x_index - x_target)
+            y_difference_to_goal = abs(y_index - y_target)
+            if difference_to_parent > max_difference:
+                continue
+            cost_child = cost_list[x_index][y_index]
+            h_cost = min(x_difference_to_goal, y_difference_to_goal) * 14 + abs(
+                x_difference_to_goal - y_difference_to_goal) * 10 + difference_to_goal
+            cost_curr = cost_list[curr_node.point[1]][curr_node.point[0]]
+            if cost_child == -1 or cost_child > cost_curr + 10 + difference_to_parent:
+                cost_list[x_index][y_index] = cost_curr + 10 + difference_to_parent
+                cost_list_parent[x_index][y_index] = curr_node.point
+                cost_list_with_h[x_index][y_index] = cost_curr + 10 + difference_to_parent + h_cost
+                nodes_queue.append(child_str)
+
+        for child_dig in curr_node.children_dig:
+            x_index = child_dig[1]
+            y_index = child_dig[0]
+            if x_index < 0 or x_index >= map_size_x:
+                continue
+            if y_index < 0 or y_index >= map_size_y:
+                continue
+            difference_to_parent = abs(map_list[x_index][y_index] - map_list[curr_node.point[1]][curr_node.point[0]])
+            difference_to_goal = abs(map_list[x_index][y_index] - map_list[x_target][y_target])
+            x_difference_to_goal = abs(x_index - x_target)
+            y_difference_to_goal = abs(y_index - y_target)
+            if difference_to_parent > max_difference:
+                continue
+            cost_child = cost_list[x_index][y_index]
+            h_cost = min(x_difference_to_goal, y_difference_to_goal) * 14 + abs(
+                x_difference_to_goal - y_difference_to_goal) * 10 + difference_to_goal
+            cost_curr = cost_list[curr_node.point[1]][curr_node.point[0]]
+            if cost_child == -1 or cost_child > cost_curr + 14 + difference_to_parent:
+                cost_list[x_index][y_index] = cost_curr + 14 + difference_to_parent
+                cost_list_parent[x_index][y_index] = curr_node.point
+                cost_list_with_h[x_index][y_index] = cost_curr + 14 + difference_to_parent + h_cost
+                nodes_queue.append(child_dig)
+    if min_cost > -1:
+        visited.insert(0, target_site)
+        # print(target_site)
+        # print(cost_list_parent)
+        curr_parent = cost_list_parent[target_site[1]][target_site[0]]
+        while curr_parent != landing_site and curr_parent != [0]:
+            visited.insert(0, curr_parent)
+            curr_parent = cost_list_parent[curr_parent[1]][curr_parent[0]]
+        if landing_site not in visited:
+            visited.insert(0, landing_site)
+        write_data(visited)
+    else:
+        # print('Failure')
+        write_data('FAIL')
+        return
+
+
+t = TerrainMap()
+t.read_data()
+# t.print_data()
+if t.Algorithm == 'BFS':
+    for i in range(t.target_sites_size):
+        times = t.target_sites_size - i
+        bfs(t, t.landing_site, t.target_sites[i])
+if t.Algorithm == 'UCS':
+    for i in range(t.target_sites_size):
+        times = t.target_sites_size - i
+        uniform_cost_search(t, t.landing_site, t.target_sites[i])
+if t.Algorithm == 'A*':
+    for i in range(t.target_sites_size):
+        times = t.target_sites_size - i
+        a_star_search(t, t.landing_site, t.target_sites[i])
